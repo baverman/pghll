@@ -1,0 +1,3 @@
+comment = 'functions to work with hll counters'
+default_version = '1.0'
+module_pathname = '$libdir/pghll'
