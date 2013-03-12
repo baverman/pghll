@@ -1,6 +1,6 @@
 #include <stdint.h>
 #include <math.h>
-#include <byteswap.h>
+#include <arpa/inet.h>
 #include <zlib.h>
 
 #include "postgres.h"
@@ -23,7 +23,7 @@ static double calc_sum_and_zeros(int count, uint32_t *data, int *zeros) {
 	int j = 0;
 	int shift = 0;
 	for (i = 0; j < count; i++) {
-		uint32_t value = bswap_32(data[i]);
+		uint32_t value = ntohl(data[i]);
 		for (shift = 0; j < count && shift < 30; j++, shift += 5) {
 			int v = (value & (0x1f << shift)) >> shift;
 			sum += pow(2, -v);
@@ -63,8 +63,8 @@ static void merge_sets(int count, uint32_t *source, uint32_t *dest) {
 	int j = 0;
 	int shift = 0;
 	for (i = 0; j < count; i++) {
-		uint32_t svalue = bswap_32(source[i]);
-		uint32_t dvalue = bswap_32(dest[i]);
+		uint32_t svalue = ntohl(source[i]);
+		uint32_t dvalue = ntohl(dest[i]);
 		uint32_t result = 0;
 		for (shift = 0; j < count && shift < 30; j++, shift += 5) {
 			int sv = (svalue & (0x1f << shift)) >> shift;
@@ -75,7 +75,7 @@ static void merge_sets(int count, uint32_t *source, uint32_t *dest) {
 				result += dv << shift;
 			}		
 		}
-		dest[i] = bswap_32(result);
+		dest[i] = htonl(result);
 	}
 }
 
@@ -97,7 +97,7 @@ PG_FUNCTION_INFO_V1(hll_count);
 Datum hll_count(PG_FUNCTION_ARGS) {
     bytea *arg = PG_GETARG_BYTEA_P(0);
 	uint32_t *data = (uint32_t *) VARDATA(arg);
-    int count = 1 << bswap_32(data[0]);
+    int count = 1 << ntohl(data[0]);
     int64 result = cardinality(count, data + 2, 1);
     PG_RETURN_INT64(result);
 }
@@ -122,6 +122,6 @@ Datum hll_merge(PG_FUNCTION_ARGS) {
 		sdata = (uint32_t *) VARDATA(state); 
 	}
 
-	merge_sets(1 << bswap_32(sdata[0]), vdata + 2, sdata + 2);
+	merge_sets(1 << ntohl(sdata[0]), vdata + 2, sdata + 2);
 	PG_RETURN_BYTEA_P(state);
 }
