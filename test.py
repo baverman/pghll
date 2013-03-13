@@ -35,6 +35,7 @@ cursor = conn.cursor()
 #conn.commit()
 
 s = time()
-cursor.execute('SELECT hll_count(hll_merge(hll_decode(data))) from hll_big_test')
+#cursor.execute('SELECT hll_count(hll_merge(hll_decode(data))) from hll_big_test')
+cursor.execute('SELECT hll_sum(data) from hll_big_test')
 print cursor.fetchone()
 print time() - s
