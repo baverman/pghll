@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 import psycopg2
 from struct import Struct
+from time import time
 
 raw_data = [
     'eNrt0TENACAAA8GOTAQdqEQKAhCJA8JIwp2C5pukJn0FAACAk/nmrOKZ7zQJgIcMCQAAAAAAuLYBWvQCHQ==',
@@ -30,5 +31,10 @@ def create_big_table(cursor):
 conn = psycopg2.connect('user=bobrov')
 cursor = conn.cursor()
 #create_table(cursor)
-create_big_table(cursor)
-conn.commit()
+#create_big_table(cursor)
+#conn.commit()
+
+s = time()
+cursor.execute('SELECT hll_count(hll_merge(hll_decode(data))) from hll_big_test')
+print cursor.fetchone()
+print time() - s

@@ -23,7 +23,7 @@ static double calc_sum_and_zeros(int count, uint32_t *data, int *zeros) {
 	int j = 0;
 	int shift = 0;
 	for (i = 0; j < count; i++) {
-		uint32_t value = ntohl(data[i]);
+		uint32_t value = data[i];
 		for (shift = 0; j < count && shift < 30; j++, shift += 5) {
 			int v = (value & (0x1f << shift)) >> shift;
 			sum += pow(2, -v);
@@ -63,8 +63,8 @@ static void merge_sets(int count, uint32_t *source, uint32_t *dest) {
 	int j = 0;
 	int shift = 0;
 	for (i = 0; j < count; i++) {
-		uint32_t svalue = ntohl(source[i]);
-		uint32_t dvalue = ntohl(dest[i]);
+		uint32_t svalue = source[i];
+		uint32_t dvalue = dest[i];
 		uint32_t result = 0;
 		for (shift = 0; j < count && shift < 30; j++, shift += 5) {
 			int sv = (svalue & (0x1f << shift)) >> shift;
@@ -75,7 +75,7 @@ static void merge_sets(int count, uint32_t *source, uint32_t *dest) {
 				result += dv << shift;
 			}		
 		}
-		dest[i] = htonl(result);
+		dest[i] = result;
 	}
 }
 
@@ -83,13 +83,21 @@ PG_FUNCTION_INFO_V1(hll_decode);
 Datum hll_decode(PG_FUNCTION_ARGS) {
     bytea *data = PG_GETARG_BYTEA_P(0);
     bytea *udata = (bytea *) palloc(UBUF_LEN);
-
+	uint32_t *body = (uint32_t *) VARDATA(udata);
+	int i;
+	uint32_t count;
+	
     uLongf dest_size = UBUF_LEN;
-    int res = uncompress(VARDATA(udata), &dest_size, VARDATA(data), VARSIZE(data));
+    int res = uncompress((Bytef *) body, &dest_size, (Bytef *) VARDATA(data), VARSIZE(data));
     if ( res != Z_OK ) {
 		ereport(ERROR, (errcode(ERRCODE_DATA_EXCEPTION), errmsg("can't decode value")));		    	
     }
     SET_VARSIZE(udata, dest_size + VARHDRSZ);
+    
+    count = dest_size / 4;
+    for(i = 0; i < count; i++) {
+    	body[i] = ntohl(body[i]);	
+    }
     PG_RETURN_BYTEA_P(udata);
 }
 
@@ -97,8 +105,7 @@ PG_FUNCTION_INFO_V1(hll_count);
 Datum hll_count(PG_FUNCTION_ARGS) {
     bytea *arg = PG_GETARG_BYTEA_P(0);
 	uint32_t *data = (uint32_t *) VARDATA(arg);
-    int count = 1 << ntohl(data[0]);
-    int64 result = cardinality(count, data + 2, 1);
+    int64 result = cardinality(1 << data[0], data + 2, 1);
     PG_RETURN_INT64(result);
 }
 
@@ -111,17 +118,12 @@ Datum hll_merge(PG_FUNCTION_ARGS) {
 	uint32_t *vdata = (uint32_t *) VARDATA(value);
 	 
 	if ( PG_ARGISNULL(0) ) {
-		state = (bytea *) palloc(VARSIZE(value));
-		SET_VARSIZE(state, VARSIZE(value));
-		sdata = (uint32_t *) VARDATA(state); 
-		memset(sdata, '\0', VARSIZE(value) - VARHDRSZ);
-		sdata[0] = vdata[0];
-		sdata[1] = vdata[1];				
+		PG_RETURN_BYTEA_P(value);
 	} else {
 		state = PG_GETARG_BYTEA_P(0);
 		sdata = (uint32_t *) VARDATA(state); 
 	}
 
-	merge_sets(1 << ntohl(sdata[0]), vdata + 2, sdata + 2);
+	merge_sets(1 << sdata[0], vdata + 2, sdata + 2);
 	PG_RETURN_BYTEA_P(state);
 }
