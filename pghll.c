@@ -76,11 +76,7 @@ static void merge_sets(int count, uint32_t *source, uint32_t *dest) {
 		for (shift = 0; j < count && shift < 30; j++, shift += 5) {
 			int sv = (svalue & (0x1f << shift)) >> shift;
 			int dv = (dvalue & (0x1f << shift)) >> shift;
-			if ( sv > dv ) {
-				result += sv << shift;
-			} else {
-				result += dv << shift;
-			}
+			result += (( sv > dv ) ? sv : dv ) << shift; 
 		}
 		dest[i] = result;
 	}
